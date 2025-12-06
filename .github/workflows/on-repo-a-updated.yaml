@@ -1,0 +1,93 @@
+name: Handle Repo-A RC
+run-name: Handle Repo-A RC
+
+on:
+  repository_dispatch:
+    types: [repo-a-test-request]
+
+permissions:
+  contents: read
+
+env:
+  ORCH_REPO: OpenGitTraining/repo-a-manager
+  RESULT_EVENT_TYPE: rc-test-result
+
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Extract payload
+        id: payload
+        run: |
+          SRC_REPO="${{ github.event.client_payload.source_repo }}"
+          TAG="${{ github.event.client_payload.tag }}"
+          RELEASE_URL="${{ github.event.client_payload.release_url }}"
+
+          if [ -z "$SRC_REPO" ] || [ -z "$TAG" ]; then
+            echo "Missing source_repo or tag in client_payload"
+            exit 1
+          fi
+
+          echo "source_repo=$SRC_REPO" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "release_url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
+
+          echo "Running integration tests for:"
+          echo "  source_repo: $SRC_REPO"
+          echo "  tag:         $TAG"
+          echo "  release_url: $RELEASE_URL"
+
+      - name: Checkout repo-A at RC tag
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.payload.outputs.source_repo }}   # OpenGitTraining/repo-A
+          ref: ${{ steps.payload.outputs.tag }}
+
+      # 👇 Replace this with your actual integration tests
+      - name: Run fake integration tests
+        id: tests
+        run: |
+          echo "Running integration tests for repo-A at ${{ steps.payload.outputs.tag }}"
+          # TODO: replace with real commands
+          # For demo, randomly succeed:
+          # STATUS="success"
+          STATUS="success"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+        # if your real tests fail, ensure you set status=failure and exit 0 so we still notify manager
+
+      - name: Generate installation token (GitHub App)
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.GH_APP__CI_ORCHESTRATOR__ID }}
+          private-key: ${{ secrets.GH_APP__CI_ORCHESTRATOR__PRIVATE_KEY }}
+          owner: OpenGitTraining
+          repositories: repo-a-manager,integration-tests-AB,repo-A
+
+      - name: Notify repo-a-manager with test result
+        run: |
+          SRC_REPO="${{ steps.payload.outputs.source_repo }}"
+          TAG="${{ steps.payload.outputs.tag }}"
+          RELEASE_URL="${{ steps.payload.outputs.release_url }}"
+          STATUS="${{ steps.tests.outputs.status }}"
+
+          echo "Sending test result '$STATUS' for $SRC_REPO@$TAG to ${{ env.ORCH_REPO }}"
+
+          curl -f -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ steps.app_token.outputs.token }}" \
+            "https://api.github.com/repos/${{ env.ORCH_REPO }}/dispatches" \
+            -d @- <<EOF
+          {
+            "event_type": "${{ env.RESULT_EVENT_TYPE }}",
+            "client_payload": {
+              "source_repo": "$SRC_REPO",
+              "tag": "$TAG",
+              "release_url": "$RELEASE_URL",
+              "status": "$STATUS",
+              "subscriber": "integration-tests-AB"
+            }
+          }
+          EOF
