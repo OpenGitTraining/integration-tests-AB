@@ -1,5 +1,5 @@
-name: Handle Repo-A RC
-run-name: Handle Repo-A RC
+name: On Repo A Test Requested
+run-name: On Repo A Test Requested
 
 on:
   repository_dispatch:
