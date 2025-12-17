@@ -40,10 +40,7 @@ jobs:
           echo "  release_url: $RELEASE_URL"
 
       - name: Checkout repo-A at RC tag
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ steps.payload.outputs.source_repo }}   # OpenGitTraining/repo-A
-          ref: ${{ steps.payload.outputs.tag }}
+        uses: actions/checkout@v6
 
       # 👇 Replace this with your actual integration tests
       - name: Run fake integration tests
@@ -53,6 +50,9 @@ jobs:
           # TODO: replace with real commands
           # For demo, randomly succeed:
           # STATUS="success"
+          echo "Running tests ..."
+          sleep 10
+          echo "Running tests --- done"
           STATUS="success"
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
         # if your real tests fail, ensure you set status=failure and exit 0 so we still notify manager
