@@ -51,7 +51,7 @@ jobs:
           # For demo, randomly succeed:
           # STATUS="success"
           echo "Running tests ..."
-          sleep 10
+          sleep 10 # TODO: REMOVE ME
           echo "Running tests --- done"
           STATUS="success"
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
